@@ -3,6 +3,10 @@
 #include <QtGui/QImage>
 #include <QtGui/QVector2D>
 #include <QDebug>
+#include <stack>
+#include <iostream>
+using namespace std;
+
 
 const uint R = 256*256;
 const uint G = 256;
@@ -16,10 +20,22 @@ struct col{
 	uchar A;
 };
 
+struct pt{
+	int x;
+	int y;
+};
+
+struct fpt{
+	double x;
+	double y;
+};
+
 void expand(col* r, uint* w, int amount, int width, int height);
 void shrink(col* r, uint* w, int amount, int width, int height);
 void mask(uint* im, uint* mask, int width, int height);
-
+void yelshrink(col* r, uint* w, int amount, int width, int height);
+int flood_fill(col* r_im, uint* w_im, int x, int y, fpt *dcentre, int width);
+void find_regions(col* r_im, uint* w_im, int width, int height, int region_size, bool max);
 
 int main(int argc, char *argv[])
 {
@@ -35,6 +51,7 @@ int main(int argc, char *argv[])
 	QImage ymask = QImage(width, height, QImage::Format_RGB32);
 	QImage mmask = QImage(width, height, QImage::Format_RGB32);
 	QImage cmask = QImage(width, height, QImage::Format_RGB32);
+	QImage out = QImage(width, height, QImage::Format_RGB32);
 	
 	im.load("im-0043.png");
 	//QImage im(width, height, QImage::Format_ARGB32);
@@ -44,14 +61,15 @@ int main(int argc, char *argv[])
 	uint* w_p = (uint*)im.bits();
 	col* r_gmask = (col*)gmask.bits();
 	uint* w_gmask = (uint*)gmask.bits();
-	col* r_rmask = (col*)gmask.bits();
-	uint* w_rmask = (uint*)gmask.bits();
-	col* r_ymask = (col*)gmask.bits();
-	uint* w_ymask = (uint*)gmask.bits();
-	col* r_mmask = (col*)gmask.bits();
-	uint* w_mmask = (uint*)gmask.bits();
-	col* r_cmask = (col*)gmask.bits();
-	uint* w_cmask = (uint*)gmask.bits();
+	col* r_rmask = (col*)rmask.bits();
+	uint* w_rmask = (uint*)rmask.bits();
+	col* r_ymask = (col*)ymask.bits();
+	uint* w_ymask = (uint*)ymask.bits();
+	col* r_mmask = (col*)mmask.bits();
+	uint* w_mmask = (uint*)mmask.bits();
+	col* r_cmask = (col*)cmask.bits();
+	uint* w_cmask = (uint*)cmask.bits();
+	uint* w_out = (uint*)out.bits();
 	//qDebug() << sizeof(uint);
 	
 	for (int x = 0; x < width; x++){
@@ -92,11 +110,23 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	yelshrink(r_gmask, w_gmask, 10, width, height);
+	yelshrink(r_ymask, w_ymask, 2, width, height);
+	yelshrink(r_mmask, w_mmask, 2, width, height);
+	yelshrink(r_rmask, w_rmask, 2, width, height);
+	yelshrink(r_cmask, w_cmask, 2, width, height);
+	expand(r_rmask, w_rmask, 4, width, height);
+	find_regions(r_ymask, w_ymask, width, height, 1, true);
+	find_regions(r_mmask, w_mmask, width, height, 1, true);
+	find_regions(r_cmask, w_cmask, width, height, 1, true);
+	find_regions(r_rmask, w_rmask, width, height, 20, false);
 	
 	
-	im.save("im-0008-new.png", "PNG");
-	gmask.save("im-0008-new-mask.png", "PNG");
+	//im.save("im-0008-new.png", "PNG");
+	//gmask.save("im-0008-new-mask.png", "PNG");
+	//mmask.save("im-0008-mmask.png", "PNG");
+	//rmask.save("im-0008-rmask.png", "PNG");
+	//ymask.save("im-0008-ymask.png", "PNG");
+	//cmask.save("im-0008-cmask.png", "PNG");
 	
 	exit(0);
     return a.exec();
@@ -177,3 +207,74 @@ void mask(uint* im, uint* mask, int width, int height){
 	}
 }
 
+void find_regions(col* r_im, uint* w_im, int width, int height, int region_size, bool max){
+	for (int x = 0; x < width; x++){
+		w_im[x] = 0;
+		w_im[x+width*(height-1)] = 0;
+	}
+	for (int y = 0; y < height; y++){
+		w_im[y*width] = 0;
+		w_im[width-1+width*y] = 0;
+	}
+	
+	fpt max_centre;
+	int max_size=0;
+	for (int x = 0; x < width; x++){
+		for (int y = 0; y < height; y++){
+			if (r_im[x+y*width].R ==255){
+				fpt dcentre;
+				int count = flood_fill(r_im, w_im, x, y, &dcentre, width);
+				if (count >= region_size){
+					//w_out[int(dcentre.x) + width * int(dcentre.y)] = col;
+					if (max){
+						if (count >= max_size){
+							max_size = count;
+							max_centre = dcentre;
+						}
+					}else{
+						cout << dcentre.x << " " <<dcentre.y << "\n";
+						//qDebug() << dcentre.x << dcentre.y;
+					}
+				}
+			}
+		}
+	}
+	if (max){
+		cout << max_centre.x << " " << max_centre.y << "\n";
+		//qDebug() << max_centre.x << max_centre.y;
+	}
+}
+
+int flood_fill(col* r_im, uint* w_im, int x, int y, fpt *dcentre, int width){
+	int count = 1;
+	pt centre;
+	centre.x = x;
+	centre.y = y;
+	
+	int pos [8][2] = {{-1,-1},{-1,0},{-1,1},{0,-1},{0,1},{1,-1},{1,0},{1,1}};
+	
+	stack<pt> pts;
+	pts.push(centre);
+	
+	while (!pts.empty()){
+		pt cur = pts.top();
+		pts.pop();
+		for (int i = 0; i < 8; i++){
+			if (r_im[(cur.x+pos[i][0]) + width*(cur.y+pos[i][1])].R == 255){
+				r_im[(cur.x+pos[i][0]) + width*(cur.y+pos[i][1])].R = 0;
+				count++;
+				pt tmp;
+				tmp.x = cur.x+pos[i][0];
+				tmp.y = cur.y+pos[i][1];
+				pts.push(tmp);
+				centre.x += cur.x+pos[i][0];
+				centre.y += cur.y+pos[i][1];
+			}
+		}
+	}
+	dcentre->x = centre.x / float(count);
+	dcentre->y = centre.y / float(count);
+	
+	return count;
+	
+}
