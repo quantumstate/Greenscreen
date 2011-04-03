@@ -1,4 +1,5 @@
 #include <QtGui/QApplication>
+#include <QtCore/QCoreApplication>
 #include "mainwindow.h"
 #include <QtGui/QImage>
 #include <QtGui/QVector2D>
@@ -39,6 +40,7 @@ void find_regions(col* r_im, uint* w_im, int width, int height, int region_size,
 
 int main(int argc, char *argv[])
 {
+	QCoreApplication coreapp(argc, argv);
     QApplication a(argc, argv);
     //MainWindow w;
     //w.show();
@@ -53,7 +55,8 @@ int main(int argc, char *argv[])
 	QImage cmask = QImage(width, height, QImage::Format_RGB32);
 	QImage out = QImage(width, height, QImage::Format_RGB32);
 	
-	im.load("im-0043.png");
+	//im.load("im-0043.png");
+	im.load(coreapp.arguments().at(1).toLocal8Bit().constData());
 	//QImage im(width, height, QImage::Format_ARGB32);
 	
 	//uint* p = (uint*)im.bits();
@@ -83,8 +86,9 @@ int main(int argc, char *argv[])
 		}
 	}
 	shrink(r_gmask, w_gmask, 10, width, height);
-	expand(r_gmask, w_gmask, 40, width, height);
-	shrink(r_gmask, w_gmask, 30, width, height);
+	expand(r_gmask, w_gmask, 30, width, height);
+	expand(r_gmask, w_gmask, 30, width, height);
+	shrink(r_gmask, w_gmask, 50, width, height);
 	mask(w_p, w_gmask, width, height);
 	
 	
@@ -121,10 +125,10 @@ int main(int argc, char *argv[])
 	find_regions(r_rmask, w_rmask, width, height, 20, false);
 	
 	
-	//im.save("im-0008-new.png", "PNG");
+	im.save("im-0008-new.png", "PNG");
 	//gmask.save("im-0008-new-mask.png", "PNG");
-	//mmask.save("im-0008-mmask.png", "PNG");
-	//rmask.save("im-0008-rmask.png", "PNG");
+	mmask.save("im-0008-mmask.png", "PNG");
+	rmask.save("im-0008-rmask.png", "PNG");
 	//ymask.save("im-0008-ymask.png", "PNG");
 	//cmask.save("im-0008-cmask.png", "PNG");
 	
