@@ -6,6 +6,9 @@
 #include <QDebug>
 #include <stack>
 #include <iostream>
+#include <QFile>
+#include <QStringList>
+
 using namespace std;
 
 
@@ -19,6 +22,13 @@ struct col{
 	uchar G;
 	uchar R;
 	uchar A;
+};
+
+struct fcol{
+	float B;
+	float G;
+	float R;
+	float A;
 };
 
 struct pt{
@@ -75,38 +85,86 @@ int main(int argc, char *argv[])
 	uint* w_out = (uint*)out.bits();
 	//qDebug() << sizeof(uint);
 	
+	
+	
+	QFile file("in.txt");
+	file.open(QIODevice::ReadOnly | QIODevice::Text);
+	
+	QTextStream fileRef(&file);
+	//fileRef << 100.0 << 12.7;
+	QString line;
+	line = fileRef.readLine();
+	line = fileRef.readLine();
+	QStringList list1;
+	float c[5][12];
+	for (int i =0; i < 5; i++){
+		line = fileRef.readLine();
+		list1 = line.split(",");
+		for (int j = 0; j < 12; j++){
+			c[i][j] = list1.at(j).toFloat();
+		}
+	}
+	
+	
+	line = fileRef.readLine();
+	line = fileRef.readLine();
+	list1 = line.split(",");
+	int s1 = list1.at(0).toInt();
+	int g1 = list1.at(1).toInt();
+	int g2 = list1.at(2).toInt();
+	int s2 = list1.at(3).toInt();
+	int s3 = list1.at(4).toInt();
+	file.close();
+	
 	for (int x = 0; x < width; x++){
 		for (int y = 0; y < height; y++){	
 			col q = r_p[x+width*y];
-			if ((q.G > q.R * 1.4) && (q.G > q.B * 2)){
+			if (q.R>=c[0][0] && q.R<=c[0][1] && q.G>=c[0][2] && q.G<=c[0][3] && q.B>=c[0][4] && q.B<=c[0][5] &&
+			  q.R/(q.G+1)>=c[0][6] && q.R/(q.G+1)<=c[0][7] && q.G/(q.B+1)>=c[0][8] && q.G/(q.B+1)<=c[0][9] && q.B/(q.R+1)>=c[0][10] && q.B/(q.R+1)<=c[0][11]){
 				w_gmask[x+width*y] = R*255+G*255+B*255;
 			}
 			
 			//p[x+width*y] = 255*G + 100*A;
 		}
 	}
-	shrink(r_gmask, w_gmask, 10, width, height);
-	expand(r_gmask, w_gmask, 30, width, height);
-	expand(r_gmask, w_gmask, 30, width, height);
-	shrink(r_gmask, w_gmask, 50, width, height);
+	
+	shrink(r_gmask, w_gmask, s1, width, height);
+	expand(r_gmask, w_gmask, g1, width, height);
+	expand(r_gmask, w_gmask, 1, width, height);
+	expand(r_gmask, w_gmask, g2, width, height);
+	expand(r_gmask, w_gmask, 1, width, height);
+	shrink(r_gmask, w_gmask, s2, width, height);
+	shrink(r_gmask, w_gmask, s3, width, height);
 	mask(w_p, w_gmask, width, height);
+	//cout << x;
 	
-	
+
 	
 	for (int x = 0; x < width; x++){
 		for (int y = 0; y < height; y++){	
 			col q = r_p[x+width*y];
+			fcol qf;
+			qf.R = float(q.R);
+			qf.G = float(q.G);
+			qf.B = float(q.B);
+			
 			//do magenta first so it doesn't get done by red
-			if ((q.R > q.G * 2) && (q.B > q.G * 2) && (q.R/q.B > 0.7) && (q.R/q.B < 8)){
+			int n = 2;
+			//cout << float(q.B)/float(q.R+1);
+			if (qf.R>=c[n][0] && qf.R<=c[n][1] && qf.G>=c[n][2] && qf.G<=c[n][3] && qf.B>=c[n][4] && qf.B<=c[n][5] &&
+			  qf.R/(qf.G+1)>=c[n][6] && qf.R/(qf.G+1)<=c[n][7] && qf.G/(qf.B+1)>=c[n][8] && qf.G/(qf.B+1)<=c[n][9] && qf.B/(qf.R+1)>=c[n][10] && qf.B/(qf.R+1)<=c[n][11]){
 				w_mmask[x+y*width] = 255*R+255*G+255*B;
 				w_p[x+y*width] = 255*R+255*B;
-			} else if ((q.R > q.G * 3) && (q.R > q.B * 3)){
+			} else if (n-- && qf.R>=c[n][0] && qf.R<=c[n][1] && qf.G>=c[n][2] && qf.G<=c[n][3] && qf.B>=c[n][4] && qf.B<=c[n][5] &&
+					   qf.R/(qf.G+1)>=c[n][6] && qf.R/(qf.G+1)<=c[n][7] && qf.G/(qf.B+1)>=c[n][8] && qf.G/(qf.B+1)<=c[n][9] && qf.B/(qf.R+1)>=c[n][10] && qf.B/(qf.R+1)<=c[n][11]){ //red
 				w_rmask[x+y*width] = 255*R+255*G+255*B;
 				w_p[x+y*width] = 255*R;
-			} else if ((q.R > q.B * 2) && (q.G > q.B * 2) && (q.R/q.G > 0.7) && (q.R/q.G < 1.3)){
+			} else if (n++ && n++ && qf.R>=c[n][0] && qf.R<=c[n][1] && qf.G>=c[n][2] && qf.G<=c[n][3] && qf.B>=c[n][4] && qf.B<=c[n][5] &&
+					   qf.R/(qf.G+1)>=c[n][6] && qf.R/(qf.G+1)<=c[n][7] && qf.G/(qf.B+1)>=c[n][8] && qf.G/(qf.B+1)<=c[n][9] && qf.B/(qf.R+1)>=c[n][10] && qf.B/(qf.R+1)<=c[n][11]){ //yellow
 				w_ymask[x+y*width] = 255*R+255*G+255*B;
 				w_p[x+y*width] = 255*R+255*G;
-			} else if ((q.B > 0) && (q.G > 0) && (q.G/q.B < 2)){
+			} else if (n++ && qf.R>=c[n][0] && qf.R<=c[n][1] && qf.G>=c[n][2] && qf.G<=c[n][3] && qf.B>=c[n][4] && qf.B<=c[n][5] &&
+					   qf.R/(qf.G+1)>=c[n][6] && qf.R/(qf.G+1)<=c[n][7] && qf.G/(qf.B+1)>=c[n][8] && qf.G/(qf.B+1)<=c[n][9] && qf.B/(qf.R+1)>=c[n][10] && qf.B/(qf.R+1)<=c[n][11]){ //cyan
 				w_cmask[x+y*width] = 255*R+255*G+255*B;
 				w_p[x+y*width] = 255*B+255*G;
 			}
@@ -125,10 +183,10 @@ int main(int argc, char *argv[])
 	find_regions(r_rmask, w_rmask, width, height, 20, false);
 	
 	
-	im.save("im-0008-new.png", "PNG");
+	im.save("color-highlights.png", "PNG");
 	//gmask.save("im-0008-new-mask.png", "PNG");
-	mmask.save("im-0008-mmask.png", "PNG");
-	rmask.save("im-0008-rmask.png", "PNG");
+	//mmask.save("im-0008-mmask.png", "PNG");
+	//rmask.save("im-0008-rmask.png", "PNG");
 	//ymask.save("im-0008-ymask.png", "PNG");
 	//cmask.save("im-0008-cmask.png", "PNG");
 	
